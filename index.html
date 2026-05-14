@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDF Merger + Compresor — Courier Docs</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0f172a;font-family:'Segoe UI',system-ui,sans-serif;color:#fff;min-height:100vh;padding:20px}
+  .wrap{max-width:760px;margin:0 auto}
+  .header{text-align:center;margin-bottom:24px}
+  .header-title{display:flex;justify-content:center;align-items:center;gap:8px;margin-bottom:4px}
+  .header-title svg{width:28px;height:28px;color:#818cf8}
+  .header-title h1{font-size:20px;font-weight:700}
+  .header p{color:#94a3b8;font-size:12px;margin-bottom:12px}
+  .badges{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}
+  .badge{display:inline-flex;align-items:center;gap:3px;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600}
+  .bg{background:#1e3a5f;color:#60a5fa;border:1px solid #1d4ed8}
+  .bd{background:#2e1065;color:#c084fc;border:1px solid #7c3aed}
+  .bf{background:#1c1917;color:#fb923c;border:1px solid #c2410c}
+  .bi{background:#052e16;color:#4ade80;border:1px solid #15803d}
+  .warnbar{background:rgba(180,83,9,.18);border:1px solid #92400e;color:#fcd34d;border-radius:10px;padding:10px 14px;font-size:12px;margin-bottom:16px;line-height:1.5}
+  .dz{border:2px dashed #475569;border-radius:16px;transition:all .2s;padding:32px 24px;text-align:center;margin-bottom:20px}
+  .dz.on{border-color:#6366f1;background:rgba(99,102,241,.07)}
+  .dz svg.cloud{width:38px;height:38px;color:#64748b;margin:0 auto 10px}
+  .dz .t1{color:#cbd5e1;font-weight:500;font-size:14px;margin-bottom:3px}
+  .dz .t2{color:#64748b;font-size:12px;margin-bottom:14px}
+  .pick-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  .pick-btn{background:#1e293b;border:1px solid #334155;color:#e2e8f0;padding:9px 16px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
+  .pick-btn:hover{border-color:#6366f1;background:#283548}
+  .pick-btn.primary{background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;color:#fff}
+  .pick-btn.primary:hover{opacity:.9}
+  .hint{color:#475569;font-size:11px;margin-top:12px;line-height:1.5}
+  .hidden{display:none!important}
+  .card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px}
+  .panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .panel-head span{font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.1em}
+  .link-btn{background:none;border:none;color:#64748b;font-size:12px;cursor:pointer}
+  .link-btn:hover{color:#f87171}
+  .group{padding:16px;margin-bottom:12px}
+  .group-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .group-head .left{display:flex;align-items:center;gap:8px}
+  .dot{width:8px;height:8px;border-radius:999px}
+  .dot-ok{background:#4ade80}.dot-warn{background:#facc15}
+  .group-name{font-size:14px;font-weight:600;color:#e2e8f0}
+  .group-count{color:#64748b;font-size:12px}
+  .tag{font-size:11px;padding:2px 8px;border-radius:999px}
+  .tag-ok{color:#4ade80;background:rgba(22,101,52,.3)}
+  .tag-warn{color:#facc15;background:rgba(113,63,18,.3)}
+  .row{display:flex;align-items:center;gap:8px;border-radius:8px;padding:6px 8px}
+  .row:hover{background:rgba(255,255,255,.03)}
+  .row .idx{color:#64748b;font-size:12px;width:16px;text-align:right;flex-shrink:0}
+  .row .fic{width:14px;height:14px;color:#f87171;flex-shrink:0}
+  .row .fname{color:#cbd5e1;font-size:12px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .row .fsize{color:#475569;font-size:12px;flex-shrink:0}
+  select.cs{background:#1e293b;border:1px solid #334155;color:#e2e8f0;border-radius:6px;padding:2px 6px;font-size:11px;cursor:pointer;outline:none;flex-shrink:0}
+  select.cs:focus{border-color:#6366f1}
+  .row .del{background:none;border:none;color:#475569;font-size:12px;cursor:pointer;flex-shrink:0}
+  .row .del:hover{color:#f87171}
+  .comp-box{padding:14px 16px;margin-bottom:16px}
+  .comp-box .comp-title{font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px}
+  .comp-row{display:flex;gap:8px;flex-wrap:wrap}
+  .comp-btn{background:#1e293b;border:1px solid #334155;color:#94a3b8;padding:7px 13px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s}
+  .comp-btn:hover{border-color:#475569;color:#cbd5e1}
+  .comp-btn.active{background:rgba(99,102,241,.15);border-color:#6366f1;color:#a5b4fc}
+  .progress-wrap{margin-bottom:16px}
+  .progress-labels{display:flex;justify-content:space-between;font-size:12px;color:#94a3b8;margin-bottom:4px}
+  .progress-track{background:#1e293b;border-radius:999px;height:4px}
+  .progress-fill{height:4px;border-radius:999px;background:#6366f1;transition:width .3s;width:0}
+  .btn{width:100%;border:none;border-radius:10px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity .15s,transform .1s}
+  .btn:disabled{opacity:.35;cursor:not-allowed}
+  .btn:hover:not(:disabled){opacity:.9;transform:translateY(-1px)}
+  .btn svg{width:18px;height:18px}
+  .btn-merge{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:13px;font-size:14px;margin-bottom:20px}
+  .btn-dl{background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:16px;font-size:16px}
+  .result{padding:20px}
+  .result .ok-title{color:#4ade80;font-weight:600;font-size:14px;margin-bottom:4px}
+  .result .ok-info{color:#94a3b8;font-size:12px;margin-bottom:16px;line-height:1.6}
+  .result .save-pill{display:inline-block;background:rgba(22,101,52,.3);color:#4ade80;font-weight:700;padding:1px 8px;border-radius:999px}
+  .status{border-radius:10px;padding:12px 16px;font-size:14px;font-weight:500;margin-bottom:16px}
+  .status-ok{background:rgba(5,150,105,.15);border:1px solid #065f46;color:#6ee7b7}
+  .status-err{background:rgba(220,38,38,.15);border:1px solid #991b1b;color:#fca5a5}
+  .spin{animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .fade{animation:fd .3s ease}
+  @keyframes fd{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div class="header-title">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      <h1>PDF Merger + Compresor</h1>
+    </div>
+    <p>Cargá las carpetas de cada envío · Fusiona, ordena y comprime</p>
+    <div class="badges">
+      <span class="badge bg">1 · Guía Aérea</span>
+      <span class="badge bd">2 · DSI</span>
+      <span class="badge bf">3 · Factura Courier</span>
+      <span class="badge bi">4 · Invoice</span>
+    </div>
+  </div>
+
+  <div id="fileWarn" class="warnbar hidden"></div>
+
+  <div id="dz" class="dz"
+       ondragover="doDrag(event,'on')" ondragleave="doDrag(event,'off')" ondrop="doDrop(event)">
+    <svg class="cloud" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+    <p class="t1">Arrastrá una o varias carpetas de envíos a esta zona</p>
+    <p class="t2">o usá los botones — podés repetir para ir sumando carpetas</p>
+    <div class="pick-row">
+      <button class="pick-btn primary" onclick="document.getElementById('fd').click()">📁 Agregar carpeta</button>
+      <button class="pick-btn" onclick="document.getElementById('fi').click()">📄 Agregar PDFs sueltos</button>
+    </div>
+    <p class="hint">
+      <strong>3 formas de cargar varios envíos:</strong> arrastrá todas las carpetas juntas ·
+      clickeá "Agregar carpeta" varias veces (se van sumando) ·
+      o seleccioná una carpeta madre que contenga todas las subcarpetas.
+    </p>
+  </div>
+  <input type="file" id="fi" multiple accept=".pdf" class="hidden" onchange="onSelect(event,false)">
+  <input type="file" id="fd" webkitdirectory multiple class="hidden" onchange="onSelect(event,true)">
+
+  <div id="sb" class="hidden"></div>
+
+  <div id="fp" class="hidden fade" style="margin-bottom:20px">
+    <div class="panel-head">
+      <span id="fpTitle">Envíos detectados</span>
+      <button class="link-btn" onclick="clearAll()">✕ Limpiar todo</button>
+    </div>
+    <div id="gc"></div>
+  </div>
+
+  <div id="compBox" class="card comp-box hidden fade">
+    <p class="comp-title">Nivel de compresión</p>
+    <div class="comp-row" id="compRow">
+      <button class="comp-btn" data-lvl="none">Sin comprimir</button>
+      <button class="comp-btn active" data-lvl="balanced">Equilibrado</button>
+      <button class="comp-btn" data-lvl="high">Alta calidad</button>
+      <button class="comp-btn" data-lvl="max">Máxima compresión</button>
+    </div>
+    <p class="hint" id="compHint" style="margin-top:8px"></p>
+  </div>
+
+  <div id="pw" class="progress-wrap hidden">
+    <div class="progress-labels"><span id="pl">Procesando…</span><span id="pp">0%</span></div>
+    <div class="progress-track"><div id="pb" class="progress-fill"></div></div>
+  </div>
+
+  <button id="btnM" class="btn btn-merge" onclick="startMerge()" disabled>
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+    <span id="btnT">Fusionar PDFs</span>
+  </button>
+
+  <div id="dlPanel" class="card result hidden fade">
+    <p class="ok-title">✓ PDF generado con éxito</p>
+    <p id="dlInfo" class="ok-info"></p>
+    <button class="btn btn-dl" onclick="doDownload()">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+      Descargar PDF
+    </button>
+  </div>
+
+</div>
+
+<script>
+// pdf.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+const CATS=[
+  {id:'guia',   pri:0,label:'Guía Aérea',     icon:'✈️'},
+  {id:'dsi',    pri:1,label:'DSI',            icon:'📋'},
+  {id:'factura',pri:2,label:'Factura Courier',icon:'🧾'},
+  {id:'invoice',pri:3,label:'Invoice',        icon:'💼'},
+];
+
+const COMP={
+  none:    {scale:0,  quality:0,   hint:'El PDF se fusiona sin recomprimir — conserva el tamaño y la calidad originales.'},
+  balanced:{scale:1.5,quality:0.68,hint:'Equilibrado: buena reducción de peso manteniendo legibilidad. Recomendado para documentos escaneados.'},
+  high:    {scale:2.0,quality:0.82,hint:'Alta calidad: recompresión suave. Más nítido, con reducción moderada de peso.'},
+  max:     {scale:1.1,quality:0.5, hint:'Máxima compresión: el menor tamaño posible. Puede verse algo menos nítido.'},
+};
+let compLevel='balanced';
+
+function detect(name){
+  const n=name.replace(/\.[^.]+$/,''),low=n.toLowerCase();
+  if(/guia|awb|airway|waybill|aerea|aérea/.test(low))return 'guia';
+  if(/\bdsi\b|declaraci/.test(low))return 'dsi';
+  if(/factura|courier/.test(low))return 'factura';
+  if(/invoice/.test(low))return 'invoice';
+  if(/^C[A-Z]{2}\d{4,}/i.test(n))return 'guia';
+  if(/^[A-Z]{2,3}\d{4,}_\d{8,}/i.test(n))return 'dsi';
+  if(/^F[A-Z]{2,3}[-_]\d/i.test(n))return 'factura';
+  return null;
+}
+
+let S={files:[],mergedBytes:null,busy:false};
+
+/* ───── Selector de compresión ───── */
+document.getElementById('compHint').textContent=COMP[compLevel].hint;
+document.getElementById('compRow').addEventListener('click',function(e){
+  const b=e.target.closest('.comp-btn');
+  if(!b)return;
+  compLevel=b.dataset.lvl;
+  document.querySelectorAll('.comp-btn').forEach(x=>x.classList.toggle('active',x===b));
+  document.getElementById('compHint').textContent=COMP[compLevel].hint;
+});
+
+/* ───── Aviso si se abre como archivo local ───── */
+if(window.location.protocol==='file:'){
+  const w=document.getElementById('fileWarn');
+  w.innerHTML='⚠️ Estás abriendo este archivo localmente. Arrastrar carpetas puede no funcionar. '+
+    'Usá el botón "📁 Agregar carpeta", o subí este archivo a un hosting gratuito para tener todas las funciones '+
+    'y un link accesible desde cualquier equipo.';
+  w.classList.remove('hidden');
+}
+
+/* ───── Drag & Drop — múltiples carpetas (funciona servido por http/https) ───── */
+function doDrag(e,t){e.preventDefault();document.getElementById('dz').classList[t==='on'?'add':'remove']('on');}
+
+async function doDrop(e){
+  e.preventDefault();
+  document.getElementById('dz').classList.remove('on');
+  clearSB();
+  const dt=e.dataTransfer;
+  const col=[];
+  let usedEntries=false;
+  if(dt.items&&dt.items.length){
+    const entries=[];
+    for(let i=0;i<dt.items.length;i++){
+      const en=dt.items[i].webkitGetAsEntry&&dt.items[i].webkitGetAsEntry();
+      if(en)entries.push(en);
+    }
+    if(entries.length){
+      usedEntries=true;
+      try{await Promise.all(entries.map(en=>readEntry(en,col,null)));}
+      catch(err){setSB('Error leyendo carpetas: '+err.message,'er');}
+    }
+  }
+  if(!usedEntries&&dt.files&&dt.files.length){
+    for(let i=0;i<dt.files.length;i++)col.push({file:dt.files[i],folder:'Lote'});
+  }
+  const pdfs=col.filter(x=>x.file&&x.file.name.toLowerCase().endsWith('.pdf'));
+  if(pdfs.length){addFiles(pdfs);announceAdded(pdfs);}
+  else setSB('No se detectaron PDFs al arrastrar. Probá con el botón "📁 Agregar carpeta".','er');
+}
+
+function readEntry(entry,result,folder){
+  return new Promise(res=>{
+    if(!entry){res();return;}
+    if(entry.isFile){
+      entry.file(f=>{result.push({file:f,folder:folder||entry.name||'Lote'});res();},()=>res());
+    } else if(entry.isDirectory){
+      const r=entry.createReader();const all=[];
+      (function batch(){
+        r.readEntries(b=>{
+          if(!b.length)Promise.all(all.map(c=>readEntry(c,result,entry.name))).then(res);
+          else{all.push(...b);batch();}
+        },()=>res());
+      })();
+    } else res();
+  });
+}
+
+/* ───── Selección por botón ───── */
+function onSelect(e,isFolder){
+  clearSB();
+  const all=Array.from(e.target.files).filter(f=>f.name.toLowerCase().endsWith('.pdf'));
+  const wrapped=all.map(f=>{
+    let folder='Lote';
+    if(isFolder&&f.webkitRelativePath){
+      const parts=f.webkitRelativePath.split('/');
+      folder=parts.length>=2?parts[parts.length-2]:parts[0];
+    }
+    return {file:f,folder};
+  });
+  e.target.value='';
+  if(!wrapped.length){setSB('No se encontraron archivos PDF en la selección.','er');return;}
+  addFiles(wrapped);
+  announceAdded(wrapped);
+}
+
+function announceAdded(wrapped){
+  const folders=new Set(wrapped.map(w=>w.folder)).size;
+  setSB('✓ Se agregaron '+wrapped.length+' PDF(s) de '+folders+' carpeta(s). Podés seguir agregando — se van sumando.','ok');
+}
+
+/* ───── Estado ───── */
+function addFiles(entries){
+  S.files=[...S.files,...entries.map(({file,folder})=>({file,name:file.name,folder,catId:detect(file.name),id:Math.random().toString(36).slice(2)}))];
+  S.mergedBytes=null;
+  document.getElementById('dlPanel').classList.add('hidden');
+  render();
+}
+
+function clearAll(){
+  S={files:[],mergedBytes:null,busy:false};
+  document.getElementById('dlPanel').classList.add('hidden');
+  clearSB();render();
+}
+
+function setCat(id,val){const f=S.files.find(x=>x.id===id);if(f){f.catId=val||null;render();}}
+function removeFile(id){S.files=S.files.filter(f=>f.id!==id);render();}
+
+function buildGroups(){
+  const map={};
+  for(const f of S.files){if(!map[f.folder])map[f.folder]=[];map[f.folder].push(f);}
+  for(const k of Object.keys(map))map[k].sort((a,b)=>(CATS.find(c=>c.id===a.catId)?.pri??99)-(CATS.find(c=>c.id===b.catId)?.pri??99));
+  return map;
+}
+
+function render(){
+  const fp=document.getElementById('fp'),gc=document.getElementById('gc'),btn=document.getElementById('btnM');
+  const compBox=document.getElementById('compBox');
+  if(!S.files.length){fp.classList.add('hidden');compBox.classList.add('hidden');btn.disabled=true;return;}
+  fp.classList.remove('hidden');
+  compBox.classList.remove('hidden');
+  const groups=buildGroups();
+  const nGroups=Object.keys(groups).length;
+  document.getElementById('fpTitle').textContent='Envíos detectados ('+nGroups+')';
+  let html='';
+  for(const [folder,files] of Object.entries(groups)){
+    const ids=files.map(f=>f.catId).filter(Boolean);
+    const missing=CATS.filter(c=>!ids.includes(c.id)).map(c=>c.label);
+    const ok=!missing.length;
+    html+='<div class="card group">'+
+      '<div class="group-head"><div class="left">'+
+      '<div class="dot '+(ok?'dot-ok':'dot-warn')+'"></div>'+
+      '<span class="group-name">📁 '+folder+'</span>'+
+      '<span class="group-count">'+files.length+' archivos</span></div>'+
+      (ok?'<span class="tag tag-ok">✓ Completo</span>'
+         :'<span class="tag tag-warn">Faltan: '+missing.join(', ')+'</span>')+
+      '</div><div>';
+    files.forEach((f,i)=>{
+      const kb=(f.file.size/1024).toFixed(0);
+      let opts='<option value="">— Sin cat —</option>';
+      for(const c of CATS)opts+='<option value="'+c.id+'"'+(f.catId===c.id?' selected':'')+'>'+c.icon+' '+c.label+'</option>';
+      html+='<div class="row">'+
+        '<span class="idx">'+(i+1)+'</span>'+
+        '<svg class="fic" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/></svg>'+
+        '<span class="fname" title="'+f.name+'">'+f.name+'</span>'+
+        '<span class="fsize">'+kb+'KB</span>'+
+        '<select class="cs" onchange="setCat(\''+f.id+'\',this.value)">'+opts+'</select>'+
+        '<button class="del" onclick="removeFile(\''+f.id+'\')">✕</button>'+
+      '</div>';
+    });
+    html+='</div></div>';
+  }
+  gc.innerHTML=html;
+  btn.disabled=S.busy;
+}
+
+function prog(pct,label){
+  document.getElementById('pw').classList.remove('hidden');
+  document.getElementById('pb').style.width=pct+'%';
+  document.getElementById('pp').textContent=Math.round(pct)+'%';
+  document.getElementById('pl').textContent=label;
+}
+function setSB(msg,t){
+  const b=document.getElementById('sb');
+  b.className='status '+(t==='er'?'status-err':'status-ok');
+  b.textContent=msg;b.classList.remove('hidden');
+}
+function clearSB(){document.getElementById('sb').classList.add('hidden');}
+
+/* ───── Compresión: rasteriza cada página y la reencoda como JPEG ───── */
+async function compressPDF(bytes,scale,quality){
+  const task=pdfjsLib.getDocument({data:bytes.slice(0)});
+  const pdf=await task.promise;
+  const {PDFDocument}=PDFLib;
+  const out=await PDFDocument.create();
+  const N=pdf.numPages;
+  for(let i=1;i<=N;i++){
+    prog(45+Math.round((i/N)*52),'Comprimiendo página '+i+' de '+N+'…');
+    const page=await pdf.getPage(i);
+    const base=page.getViewport({scale:1});
+    const vp=page.getViewport({scale});
+    const canvas=document.createElement('canvas');
+    canvas.width=Math.floor(vp.width);
+    canvas.height=Math.floor(vp.height);
+    const ctx=canvas.getContext('2d');
+    ctx.fillStyle='#ffffff';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    await page.render({canvasContext:ctx,viewport:vp}).promise;
+    const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',quality));
+    const jpg=await blob.arrayBuffer();
+    const img=await out.embedJpg(jpg);
+    const p=out.addPage([base.width,base.height]);
+    p.drawImage(img,{x:0,y:0,width:base.width,height:base.height});
+    canvas.width=0;canvas.height=0;
+    if(page.cleanup)page.cleanup();
+    await new Promise(r=>setTimeout(r,0));
+  }
+  return await out.save();
+}
+
+async function startMerge(){
+  if(S.busy||!S.files.length)return;
+  clearSB();S.busy=true;
+  const btn=document.getElementById('btnM'),txt=document.getElementById('btnT');
+  btn.disabled=true;
+  txt.innerHTML='<svg class="spin" style="width:16px;height:16px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Procesando…';
+  try{
+    const allFiles=Object.values(buildGroups()).flat();
+    const {PDFDocument}=PDFLib;
+    const merged=await PDFDocument.create();
+    for(let i=0;i<allFiles.length;i++){
+      const f=allFiles[i];
+      prog((i/allFiles.length)*42,'Fusionando: '+f.name);
+      await new Promise(r=>setTimeout(r,0));
+      const buf=await f.file.arrayBuffer();
+      const src=await PDFDocument.load(buf,{ignoreEncryption:true});
+      const pages=await merged.copyPages(src,src.getPageIndices());
+      pages.forEach(p=>merged.addPage(p));
+    }
+    prog(44,'Generando PDF fusionado…');
+    const rawBytes=await merged.save();
+    const originalSize=rawBytes.length;
+
+    let finalBytes=rawBytes;
+    if(compLevel!=='none'){
+      finalBytes=await compressPDF(rawBytes,COMP[compLevel].scale,COMP[compLevel].quality);
+    }
+    prog(100,'¡Listo!');
+    S.mergedBytes=finalBytes;
+
+    const finalSize=finalBytes.length;
+    const origKB=(originalSize/1024).toFixed(0);
+    const finalKB=(finalSize/1024).toFixed(0);
+    const nGroups=Object.keys(buildGroups()).length;
+    let info=allFiles.length+' archivos · '+nGroups+' envío(s)<br>';
+    if(compLevel!=='none'&&finalSize<originalSize){
+      const pct=Math.round((1-finalSize/originalSize)*100);
+      info+='Original: '+origKB+' KB → Final: '+finalKB+' KB &nbsp; <span class="save-pill">−'+pct+'%</span>';
+    }else if(compLevel!=='none'){
+      info+='Tamaño final: '+finalKB+' KB (sin reducción adicional posible)';
+    }else{
+      info+='Tamaño: '+finalKB+' KB';
+    }
+    setTimeout(()=>{
+      document.getElementById('pw').classList.add('hidden');
+      document.getElementById('dlInfo').innerHTML=info;
+      document.getElementById('dlPanel').classList.remove('hidden');
+      document.getElementById('dlPanel').scrollIntoView({behavior:'smooth'});
+    },400);
+  }catch(err){
+    document.getElementById('pw').classList.add('hidden');
+    setSB('❌ Error: '+err.message,'er');
+  }finally{
+    S.busy=false;
+    document.getElementById('btnM').disabled=false;
+    document.getElementById('btnT').textContent='Fusionar PDFs';
+  }
+}
+
+// Descarga estándar — funciona al abrir local o servido por http/https
+function doDownload(){
+  if(!S.mergedBytes)return;
+  const blob=new Blob([S.mergedBytes],{type:'application/pdf'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='Envio_Fusionado_'+new Date().toISOString().slice(0,10)+'.pdf';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+</script>
+</body>
+</html>
