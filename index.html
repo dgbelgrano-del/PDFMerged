@@ -61,10 +61,18 @@
   .row .del:hover{color:#f87171}
   .comp-box{padding:14px 16px;margin-bottom:16px}
   .comp-box .comp-title{font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px}
+  .mode-tabs{display:flex;gap:6px;margin-bottom:12px;background:#0f172a;border:1px solid #1e293b;border-radius:9px;padding:3px}
+  .mode-tab{flex:1;background:none;border:none;color:#64748b;padding:7px 10px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s}
+  .mode-tab.active{background:rgba(99,102,241,.18);color:#a5b4fc}
   .comp-row{display:flex;gap:8px;flex-wrap:wrap}
   .comp-btn{background:#1e293b;border:1px solid #334155;color:#94a3b8;padding:7px 13px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s}
   .comp-btn:hover{border-color:#475569;color:#cbd5e1}
   .comp-btn.active{background:rgba(99,102,241,.15);border-color:#6366f1;color:#a5b4fc}
+  .size-input-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .size-input-row label{font-size:13px;color:#cbd5e1}
+  .size-input-row input{background:#1e293b;border:1px solid #334155;color:#e2e8f0;border-radius:8px;padding:8px 10px;font-size:14px;width:90px;outline:none;text-align:right}
+  .size-input-row input:focus{border-color:#6366f1}
+  .size-input-row .unit{font-size:13px;color:#94a3b8}
   .progress-wrap{margin-bottom:16px}
   .progress-labels{display:flex;justify-content:space-between;font-size:12px;color:#94a3b8;margin-bottom:4px}
   .progress-track{background:#1e293b;border-radius:999px;height:4px}
@@ -79,6 +87,7 @@
   .result .ok-title{color:#4ade80;font-weight:600;font-size:14px;margin-bottom:4px}
   .result .ok-info{color:#94a3b8;font-size:12px;margin-bottom:16px;line-height:1.6}
   .result .save-pill{display:inline-block;background:rgba(22,101,52,.3);color:#4ade80;font-weight:700;padding:1px 8px;border-radius:999px}
+  .result .miss-pill{display:inline-block;background:rgba(113,63,18,.35);color:#facc15;font-weight:700;padding:1px 8px;border-radius:999px}
   .status{border-radius:10px;padding:12px 16px;font-size:14px;font-weight:500;margin-bottom:16px}
   .status-ok{background:rgba(5,150,105,.15);border:1px solid #065f46;color:#6ee7b7}
   .status-err{background:rgba(220,38,38,.15);border:1px solid #991b1b;color:#fca5a5}
@@ -136,14 +145,30 @@
   </div>
 
   <div id="compBox" class="card comp-box hidden fade">
-    <p class="comp-title">Nivel de compresión</p>
-    <div class="comp-row" id="compRow">
-      <button class="comp-btn" data-lvl="none">Sin comprimir</button>
-      <button class="comp-btn active" data-lvl="balanced">Equilibrado</button>
-      <button class="comp-btn" data-lvl="high">Alta calidad</button>
-      <button class="comp-btn" data-lvl="max">Máxima compresión</button>
+    <p class="comp-title">Compresión</p>
+    <div class="mode-tabs">
+      <button class="mode-tab active" data-mode="quality">Por calidad</button>
+      <button class="mode-tab" data-mode="target">Por tamaño máximo</button>
     </div>
-    <p class="hint" id="compHint" style="margin-top:8px"></p>
+
+    <div id="modeQuality">
+      <div class="comp-row" id="compRow">
+        <button class="comp-btn" data-lvl="none">Sin comprimir</button>
+        <button class="comp-btn" data-lvl="light">Ligera</button>
+        <button class="comp-btn active" data-lvl="balanced">Equilibrada</button>
+        <button class="comp-btn" data-lvl="strong">Fuerte</button>
+      </div>
+    </div>
+
+    <div id="modeTarget" class="hidden">
+      <div class="size-input-row">
+        <label>Tamaño máximo del PDF final:</label>
+        <input type="number" id="targetMB" value="2" min="0.2" step="0.1">
+        <span class="unit">MB</span>
+      </div>
+    </div>
+
+    <p class="hint" id="compHint" style="margin-top:10px"></p>
   </div>
 
   <div id="pw" class="progress-wrap hidden">
@@ -168,7 +193,6 @@
 </div>
 
 <script>
-// pdf.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 const CATS=[
@@ -178,12 +202,17 @@ const CATS=[
   {id:'invoice',pri:3,label:'Invoice',        icon:'💼'},
 ];
 
+/* ───── Presets de compresión ─────
+   dpi  = resolución de rasterizado (puntos por pulgada)
+   q    = calidad JPEG (0-1)
+   Estos valores buscan el equilibrio nitidez/peso de un compresor estándar. */
 const COMP={
-  none:    {scale:0,  quality:0,   hint:'El PDF se fusiona sin recomprimir — conserva el tamaño y la calidad originales.'},
-  balanced:{scale:1.5,quality:0.68,hint:'Equilibrado: buena reducción de peso manteniendo legibilidad. Recomendado para documentos escaneados.'},
-  high:    {scale:2.0,quality:0.82,hint:'Alta calidad: recompresión suave. Más nítido, con reducción moderada de peso.'},
-  max:     {scale:1.1,quality:0.5, hint:'Máxima compresión: el menor tamaño posible. Puede verse algo menos nítido.'},
+  none:    {dpi:0,  q:0,    hint:'Sin recompresión: el PDF mantiene el tamaño y la calidad originales.'},
+  light:   {dpi:200,q:0.85, hint:'Ligera: 200 DPI con alta calidad. Documento nítido, reducción moderada de peso.'},
+  balanced:{dpi:150,q:0.72, hint:'Equilibrada: 150 DPI. Buen recorte de peso conservando legibilidad. Recomendada.'},
+  strong:  {dpi:110,q:0.58, hint:'Fuerte: 110 DPI. El menor tamaño posible; ideal cuando el peso es la prioridad.'},
 };
+let compMode='quality';   // 'quality' | 'target'
 let compLevel='balanced';
 
 function detect(name){
@@ -200,26 +229,45 @@ function detect(name){
 
 let S={files:[],mergedBytes:null,busy:false};
 
-/* ───── Selector de compresión ───── */
-document.getElementById('compHint').textContent=COMP[compLevel].hint;
+/* ───── UI: tabs de modo ───── */
+document.querySelectorAll('.mode-tab').forEach(t=>{
+  t.addEventListener('click',()=>{
+    compMode=t.dataset.mode;
+    document.querySelectorAll('.mode-tab').forEach(x=>x.classList.toggle('active',x===t));
+    document.getElementById('modeQuality').classList.toggle('hidden',compMode!=='quality');
+    document.getElementById('modeTarget').classList.toggle('hidden',compMode!=='target');
+    refreshHint();
+  });
+});
+
+/* ───── UI: nivel de calidad ───── */
 document.getElementById('compRow').addEventListener('click',function(e){
   const b=e.target.closest('.comp-btn');
   if(!b)return;
   compLevel=b.dataset.lvl;
   document.querySelectorAll('.comp-btn').forEach(x=>x.classList.toggle('active',x===b));
-  document.getElementById('compHint').textContent=COMP[compLevel].hint;
+  refreshHint();
 });
 
-/* ───── Aviso si se abre como archivo local ───── */
+function refreshHint(){
+  const h=document.getElementById('compHint');
+  if(compMode==='target'){
+    h.textContent='El sistema probará distintas calidades automáticamente y elegirá la mejor que entre dentro del tamaño indicado. Si el objetivo es muy bajo, devolverá la versión más comprimida posible.';
+  }else{
+    h.textContent=COMP[compLevel].hint;
+  }
+}
+refreshHint();
+
+/* ───── Aviso archivo local ───── */
 if(window.location.protocol==='file:'){
   const w=document.getElementById('fileWarn');
   w.innerHTML='⚠️ Estás abriendo este archivo localmente. Arrastrar carpetas puede no funcionar. '+
-    'Usá el botón "📁 Agregar carpeta", o subí este archivo a un hosting gratuito para tener todas las funciones '+
-    'y un link accesible desde cualquier equipo.';
+    'Usá el botón "📁 Agregar carpeta", o subí este archivo a un hosting para tener todas las funciones.';
   w.classList.remove('hidden');
 }
 
-/* ───── Drag & Drop — múltiples carpetas (funciona servido por http/https) ───── */
+/* ───── Drag & Drop ───── */
 function doDrag(e,t){e.preventDefault();document.getElementById('dz').classList[t==='on'?'add':'remove']('on');}
 
 async function doDrop(e){
@@ -266,7 +314,6 @@ function readEntry(entry,result,folder){
   });
 }
 
-/* ───── Selección por botón ───── */
 function onSelect(e,isFolder){
   clearSB();
   const all=Array.from(e.target.files).filter(f=>f.name.toLowerCase().endsWith('.pdf'));
@@ -289,7 +336,6 @@ function announceAdded(wrapped){
   setSB('✓ Se agregaron '+wrapped.length+' PDF(s) de '+folders+' carpeta(s). Podés seguir agregando — se van sumando.','ok');
 }
 
-/* ───── Estado ───── */
 function addFiles(entries){
   S.files=[...S.files,...entries.map(({file,folder})=>({file,name:file.name,folder,catId:detect(file.name),id:Math.random().toString(36).slice(2)}))];
   S.mergedBytes=null;
@@ -320,8 +366,7 @@ function render(){
   fp.classList.remove('hidden');
   compBox.classList.remove('hidden');
   const groups=buildGroups();
-  const nGroups=Object.keys(groups).length;
-  document.getElementById('fpTitle').textContent='Envíos detectados ('+nGroups+')';
+  document.getElementById('fpTitle').textContent='Envíos detectados ('+Object.keys(groups).length+')';
   let html='';
   for(const [folder,files] of Object.entries(groups)){
     const ids=files.map(f=>f.catId).filter(Boolean);
@@ -356,8 +401,8 @@ function render(){
 
 function prog(pct,label){
   document.getElementById('pw').classList.remove('hidden');
-  document.getElementById('pb').style.width=pct+'%';
-  document.getElementById('pp').textContent=Math.round(pct)+'%';
+  document.getElementById('pb').style.width=Math.min(100,pct)+'%';
+  document.getElementById('pp').textContent=Math.round(Math.min(100,pct))+'%';
   document.getElementById('pl').textContent=label;
 }
 function setSB(msg,t){
@@ -367,35 +412,154 @@ function setSB(msg,t){
 }
 function clearSB(){document.getElementById('sb').classList.add('hidden');}
 
-/* ───── Compresión: rasteriza cada página y la reencoda como JPEG ───── */
-async function compressPDF(bytes,scale,quality){
+/* ════════════════════════════════════════════════════
+   COMPRESIÓN HÍBRIDA (página por página)
+
+   Para cada página se decide automáticamente:
+   · Página tipo ESCANEO (poco o ningún texto digital)
+       → se rasteriza a DPI real y se reencoda como JPEG.
+   · Página con TEXTO DIGITAL real
+       → se copia tal cual del PDF original, sin tocar.
+         El texto queda nítido y pesa lo mínimo.
+
+   Así un PDF mixto recibe el tratamiento correcto en cada hoja,
+   acercándose al resultado de un compresor profesional.
+   ════════════════════════════════════════════════════ */
+
+// Umbral: si una página tiene más de estos caracteres de texto extraíble,
+// se considera "texto digital" y NO se rasteriza.
+const TEXT_THRESHOLD=120;
+
+// Analiza el PDF y rasteriza SOLO las páginas tipo escaneo.
+// Devuelve, por página, o bien {type:'raster',canvas,wPt,hPt} o {type:'vector',index}.
+async function analyzeAndRaster(bytes,dpi,onProgress){
   const task=pdfjsLib.getDocument({data:bytes.slice(0)});
   const pdf=await task.promise;
-  const {PDFDocument}=PDFLib;
-  const out=await PDFDocument.create();
   const N=pdf.numPages;
+  const out=[];
+  let rasterCount=0,vectorCount=0;
   for(let i=1;i<=N;i++){
-    prog(45+Math.round((i/N)*52),'Comprimiendo página '+i+' de '+N+'…');
+    if(onProgress)onProgress(i,N);
     const page=await pdf.getPage(i);
-    const base=page.getViewport({scale:1});
-    const vp=page.getViewport({scale});
-    const canvas=document.createElement('canvas');
-    canvas.width=Math.floor(vp.width);
-    canvas.height=Math.floor(vp.height);
-    const ctx=canvas.getContext('2d');
-    ctx.fillStyle='#ffffff';
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-    await page.render({canvasContext:ctx,viewport:vp}).promise;
-    const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',quality));
-    const jpg=await blob.arrayBuffer();
-    const img=await out.embedJpg(jpg);
-    const p=out.addPage([base.width,base.height]);
-    p.drawImage(img,{x:0,y:0,width:base.width,height:base.height});
-    canvas.width=0;canvas.height=0;
+    const vpPt=page.getViewport({scale:1});
+
+    // ¿Cuánto texto digital tiene esta página?
+    let textLen=0;
+    try{
+      const tc=await page.getTextContent();
+      textLen=tc.items.reduce((s,it)=>s+((it.str||'').trim().length),0);
+    }catch(e){textLen=0;}
+
+    if(textLen>=TEXT_THRESHOLD){
+      // Página con texto real → se copiará del original sin rasterizar.
+      out.push({type:'vector',index:i-1});
+      vectorCount++;
+    }else{
+      // Página tipo escaneo → rasterizar.
+      const scale=dpi/72;
+      const vp=page.getViewport({scale});
+      const canvas=document.createElement('canvas');
+      canvas.width=Math.max(1,Math.round(vp.width));
+      canvas.height=Math.max(1,Math.round(vp.height));
+      const ctx=canvas.getContext('2d',{alpha:false});
+      ctx.fillStyle='#ffffff';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      await page.render({canvasContext:ctx,viewport:vp,intent:'print'}).promise;
+      out.push({type:'raster',canvas,wPt:vpPt.width,hPt:vpPt.height});
+      rasterCount++;
+    }
     if(page.cleanup)page.cleanup();
     await new Promise(r=>setTimeout(r,0));
   }
+  if(pdf.destroy)pdf.destroy();
+  return {pages:out,rasterCount,vectorCount,total:N};
+}
+
+// Construye el PDF final: páginas raster como JPEG, páginas vector copiadas del original.
+async function buildHybridPdf(plan,originalBytes,quality){
+  const {PDFDocument}=PDFLib;
+  const out=await PDFDocument.create();
+  const srcDoc=await PDFDocument.load(originalBytes,{ignoreEncryption:true});
+
+  // Copiar de una vez todas las páginas vectoriales necesarias.
+  const vectorIdx=plan.pages.filter(p=>p.type==='vector').map(p=>p.index);
+  let copiedVector=[];
+  if(vectorIdx.length){
+    copiedVector=await out.copyPages(srcDoc,vectorIdx);
+  }
+  let vPtr=0;
+
+  for(const pg of plan.pages){
+    if(pg.type==='vector'){
+      out.addPage(copiedVector[vPtr++]);
+    }else{
+      const blob=await new Promise(r=>pg.canvas.toBlob(r,'image/jpeg',quality));
+      const jpg=await blob.arrayBuffer();
+      const img=await out.embedJpg(jpg);
+      const p=out.addPage([pg.wPt,pg.hPt]);   // tamaño original → no deforma
+      p.drawImage(img,{x:0,y:0,width:pg.wPt,height:pg.hPt});
+    }
+    await new Promise(r=>setTimeout(r,0));
+  }
   return await out.save();
+}
+
+// Modo "por calidad": analiza, rasteriza escaneos al DPI del preset, copia el resto.
+async function compressByQuality(bytes,level){
+  const cfg=COMP[level];
+  const plan=await analyzeAndRaster(bytes,cfg.dpi,(i,n)=>{
+    prog(46+Math.round((i/n)*40),'Analizando página '+i+' de '+n+'…');
+  });
+  prog(90,'Generando PDF comprimido…');
+  const result=await buildHybridPdf(plan,bytes,cfg.q);
+  releasePlan(plan);
+  return {bytes:result,plan};
+}
+
+// Modo "por tamaño máximo": analiza una sola vez, luego busca por
+// búsqueda binaria la mejor calidad JPEG que entre en el objetivo.
+async function compressByTarget(bytes,targetBytes){
+  const plan=await analyzeAndRaster(bytes,175,(i,n)=>{
+    prog(40+Math.round((i/n)*30),'Analizando página '+i+' de '+n+'…');
+  });
+
+  let lo=0.30, hi=0.92;
+  let best=null, bestQ=lo;
+
+  prog(72,'Buscando la mejor calidad posible…');
+  const top=await buildHybridPdf(plan,bytes,hi);
+  if(top.length<=targetBytes){
+    releasePlan(plan);
+    prog(96,'Ajuste óptimo encontrado…');
+    return {bytes:top,quality:hi,fits:true,plan};
+  }
+
+  for(let iter=0;iter<7;iter++){
+    const mid=(lo+hi)/2;
+    prog(72+iter*3,'Ajustando calidad (intento '+(iter+1)+')…');
+    const candidate=await buildHybridPdf(plan,bytes,mid);
+    if(candidate.length<=targetBytes){
+      best=candidate; bestQ=mid; lo=mid;
+    }else{
+      hi=mid;
+    }
+    await new Promise(r=>setTimeout(r,0));
+  }
+
+  if(!best){
+    best=await buildHybridPdf(plan,bytes,lo);
+    bestQ=lo;
+    releasePlan(plan);
+    return {bytes:best,quality:bestQ,fits:false,plan};
+  }
+  releasePlan(plan);
+  return {bytes:best,quality:bestQ,fits:true,plan};
+}
+
+function releasePlan(plan){
+  for(const p of plan.pages){
+    if(p.type==='raster'&&p.canvas){p.canvas.width=0;p.canvas.height=0;}
+  }
 }
 
 async function startMerge(){
@@ -405,12 +569,13 @@ async function startMerge(){
   btn.disabled=true;
   txt.innerHTML='<svg class="spin" style="width:16px;height:16px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Procesando…';
   try{
+    /* 1 · Fusionar */
     const allFiles=Object.values(buildGroups()).flat();
     const {PDFDocument}=PDFLib;
     const merged=await PDFDocument.create();
     for(let i=0;i<allFiles.length;i++){
       const f=allFiles[i];
-      prog((i/allFiles.length)*42,'Fusionando: '+f.name);
+      prog((i/allFiles.length)*40,'Fusionando: '+f.name);
       await new Promise(r=>setTimeout(r,0));
       const buf=await f.file.arrayBuffer();
       const src=await PDFDocument.load(buf,{ignoreEncryption:true});
@@ -421,25 +586,51 @@ async function startMerge(){
     const rawBytes=await merged.save();
     const originalSize=rawBytes.length;
 
+    /* 2 · Comprimir según modo */
     let finalBytes=rawBytes;
-    if(compLevel!=='none'){
-      finalBytes=await compressPDF(rawBytes,COMP[compLevel].scale,COMP[compLevel].quality);
+    let targetInfo='';
+    let planInfo=null;
+    if(compMode==='quality'){
+      if(compLevel!=='none'){
+        const r=await compressByQuality(rawBytes,compLevel);
+        finalBytes=r.bytes; planInfo=r.plan;
+      }
+    }else{
+      const mb=parseFloat(document.getElementById('targetMB').value);
+      if(!mb||mb<=0){
+        setSB('Ingresá un tamaño máximo válido en MB.','er');
+        throw new Error('__handled__');
+      }
+      const targetBytes=mb*1024*1024;
+      const res=await compressByTarget(rawBytes,targetBytes);
+      finalBytes=res.bytes; planInfo=res.plan;
+      targetInfo=res.fits
+        ? 'Objetivo de '+mb+' MB alcanzado.'
+        : 'No se pudo bajar de '+mb+' MB; se entrega la versión más comprimida posible.';
     }
     prog(100,'¡Listo!');
     S.mergedBytes=finalBytes;
 
+    /* 3 · Resumen */
     const finalSize=finalBytes.length;
-    const origKB=(originalSize/1024).toFixed(0);
-    const finalKB=(finalSize/1024).toFixed(0);
+    const origMB=(originalSize/1048576).toFixed(2);
+    const finalMB=(finalSize/1048576).toFixed(2);
     const nGroups=Object.keys(buildGroups()).length;
     let info=allFiles.length+' archivos · '+nGroups+' envío(s)<br>';
-    if(compLevel!=='none'&&finalSize<originalSize){
+    if(finalSize<originalSize){
       const pct=Math.round((1-finalSize/originalSize)*100);
-      info+='Original: '+origKB+' KB → Final: '+finalKB+' KB &nbsp; <span class="save-pill">−'+pct+'%</span>';
-    }else if(compLevel!=='none'){
-      info+='Tamaño final: '+finalKB+' KB (sin reducción adicional posible)';
+      info+='Original: '+origMB+' MB → Final: '+finalMB+' MB &nbsp; <span class="save-pill">−'+pct+'%</span>';
     }else{
-      info+='Tamaño: '+finalKB+' KB';
+      info+='Tamaño final: '+finalMB+' MB';
+    }
+    if(planInfo){
+      info+='<br><span style="color:#64748b">Compresión híbrida: '+planInfo.rasterCount+
+            ' página(s) escaneadas comprimidas · '+planInfo.vectorCount+
+            ' página(s) de texto conservadas sin tocar.</span>';
+    }
+    if(targetInfo){
+      const fits=targetInfo.indexOf('alcanzado')>-1;
+      info+='<br><span class="'+(fits?'save-pill':'miss-pill')+'">'+targetInfo+'</span>';
     }
     setTimeout(()=>{
       document.getElementById('pw').classList.add('hidden');
@@ -449,7 +640,7 @@ async function startMerge(){
     },400);
   }catch(err){
     document.getElementById('pw').classList.add('hidden');
-    setSB('❌ Error: '+err.message,'er');
+    if(err.message!=='__handled__')setSB('❌ Error: '+err.message,'er');
   }finally{
     S.busy=false;
     document.getElementById('btnM').disabled=false;
@@ -457,7 +648,6 @@ async function startMerge(){
   }
 }
 
-// Descarga estándar — funciona al abrir local o servido por http/https
 function doDownload(){
   if(!S.mergedBytes)return;
   const blob=new Blob([S.mergedBytes],{type:'application/pdf'});
